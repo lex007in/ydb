@@ -87,6 +87,10 @@ namespace {
             Limit = limit;
         }
 
+        ui64 GetLimit() const override {
+            return Limit;
+        }
+
         ui64 GetSize() const override {
             ui64 size = 0;
             for (auto page : List) {

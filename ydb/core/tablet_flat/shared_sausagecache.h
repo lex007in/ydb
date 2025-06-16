@@ -35,10 +35,6 @@ struct TSharedPageCacheCounters final : public TAtomicRefCount<TSharedPageCacheC
     const TCounterPtr CacheMissBytes;
     const TCounterPtr LoadInFlyPages;
     const TCounterPtr LoadInFlyBytes;
-    const TCounterPtr ActiveRegularPages;
-    const TCounterPtr ActiveRegularBytes;
-    const TCounterPtr ActiveInMemoryPages;
-    const TCounterPtr ActiveInMemoryBytes;
 
     // page collection counters:
     const TCounterPtr PageCollections;
@@ -53,6 +49,9 @@ struct TSharedPageCacheCounters final : public TAtomicRefCount<TSharedPageCacheC
     explicit TSharedPageCacheCounters(const TIntrusivePtr<::NMonitoring::TDynamicCounters>& counters);
 
     TCounterPtr ReplacementPolicySize(TReplacementPolicy policy);
+
+    TCounterPtr ActivePagesTier(ui32 tier);
+    TCounterPtr ActiveBytesTier(ui32 tier);
 };
 
 IActor* CreateSharedPageCache(
