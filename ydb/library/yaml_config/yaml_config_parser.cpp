@@ -15,6 +15,7 @@
 #include <ydb/core/protos/auth.pb.h>
 #include <ydb/core/protos/blobstorage_base3.pb.h>
 #include <ydb/core/protos/blobstorage_config.pb.h>
+#include <ydb/core/protos/flat_scheme_op.pb.h>
 #include <ydb/core/protos/tablet.pb.h>
 #include <library/cpp/json/writer/json.h>
 #include <library/cpp/protobuf/json/util.h>
@@ -694,6 +695,26 @@ namespace NKikimr::NYaml {
         }
     }
 
+    void ApplyTableProfilesDefaults(NKikimrConfig::TAppConfig& config, const TString& defaultPoolKind) {
+        if (!config.HasTableProfilesConfig()) {
+            auto& tableProfilesConfig = *config.MutableTableProfilesConfig();
+
+            auto& tableProfile = *tableProfilesConfig.AddTableProfiles();
+            tableProfile.SetName("default");
+            tableProfile.SetStoragePolicy("default");
+
+            auto& storagePolicy = *tableProfilesConfig.AddStoragePolicies();
+            storagePolicy.SetName("default");
+
+            auto& defaultColumnFamily = *storagePolicy.AddColumnFamilies();
+            defaultColumnFamily.SetId(0);
+            auto& storageConfig = *defaultColumnFamily.MutableStorageConfig();
+            storageConfig.MutableSysLog()->SetPreferredPoolKind(defaultPoolKind);
+            storageConfig.MutableLog()->SetPreferredPoolKind(defaultPoolKind);
+            storageConfig.MutableData()->SetPreferredPoolKind(defaultPoolKind);
+        }
+    }
+
     void ApplySingleNodeDefaults(TTransformContext& ctx, NKikimrConfig::TAppConfig& config, NKikimrConfig::TEphemeralInputFields& ephemeralConfig) {
         const TString erasureName = "none";
 
@@ -813,6 +834,10 @@ namespace NKikimr::NYaml {
             } else if (determinedType == "ROT") {
                 drivePath = hostConfigZero.rot(0);
             }
+        }
+
+        if (diskTypeLower) {
+            ApplyTableProfilesDefaults(config, *diskTypeLower);
         }
     }
 
@@ -959,6 +984,10 @@ endDiskTypeCheck:   ;
                 channel.SetPDiskCategory(TPDiskCategory(PDiskTypeToPDiskType(*dtEnum), 0));
                 channel.SetStoragePoolKind(defaultDiskTypeLower.GetRef());
             };
+        }
+
+        if (defaultDiskTypeLower) {
+            ApplyTableProfilesDefaults(config, *defaultDiskTypeLower);
         }
     }
 

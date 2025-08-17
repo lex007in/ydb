@@ -1059,6 +1059,43 @@
     {
       "Port":2135
     },
+  "TableProfilesConfig":
+    {
+      "TableProfiles":
+        [
+          {
+            "Name":"default",
+            "StoragePolicy":"default"
+          }
+        ],
+      "StoragePolicies":
+        [
+          {
+            "Name":"default",
+            "ColumnFamilies":
+              [
+                {
+                  "Id":0,
+                  "StorageConfig":
+                    {
+                      "SysLog":
+                        {
+                          "PreferredPoolKind":"ssd"
+                        },
+                      "Log":
+                        {
+                          "PreferredPoolKind":"ssd"
+                        },
+                      "Data":
+                        {
+                          "PreferredPoolKind":"ssd"
+                        }
+                    }
+                }
+              ]
+          }
+        ]
+    },
   "SelfManagementConfig":
     {
       "Enabled":true,

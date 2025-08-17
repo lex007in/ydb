@@ -1025,6 +1025,43 @@
     {
       "Port":2135
     },
+  "TableProfilesConfig":
+    {
+      "TableProfiles":
+        [
+          {
+            "Name":"default",
+            "StoragePolicy":"default"
+          }
+        ],
+      "StoragePolicies":
+        [
+          {
+            "Name":"default",
+            "ColumnFamilies":
+              [
+                {
+                  "Id":0,
+                  "StorageConfig":
+                    {
+                      "SysLog":
+                        {
+                          "PreferredPoolKind":"nvme"
+                        },
+                      "Log":
+                        {
+                          "PreferredPoolKind":"nvme"
+                        },
+                      "Data":
+                        {
+                          "PreferredPoolKind":"nvme"
+                        }
+                    }
+                }
+              ]
+          }
+        ]
+    },
   "SelfManagementConfig":
     {
       "Enabled":true,
