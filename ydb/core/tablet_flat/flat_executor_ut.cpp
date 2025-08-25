@@ -6928,7 +6928,7 @@ Y_UNIT_TEST_SUITE(TFlatTableExecutor_TryKeepInMemory) {
 
         // should be preloaded
         DoFullScan(env, failedAttempts, true);
-        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 20); // TODO: preload
+        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 0);
         UNIT_ASSERT_VALUES_EQUAL(cacheCounters->CacheMissPages->Val(), 4); // should be no more cache misses
     }
 
@@ -6963,7 +6963,7 @@ Y_UNIT_TEST_SUITE(TFlatTableExecutor_TryKeepInMemory) {
         UNIT_ASSERT_VALUES_EQUAL(cacheCounters->CacheMissPages->Val(), 4); // cache misses before preloading
 
         DoFullScan(env, failedAttempts, true);
-        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 12); // TODO: preload, should be: 10 historic[1] pages
+        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 10); // 10 historic[1] pages
         UNIT_ASSERT_VALUES_EQUAL(cacheCounters->CacheMissPages->Val(), 14); // 10 historic[1] pages, 4 cache misses before preloading
     }
 
@@ -6999,7 +6999,7 @@ Y_UNIT_TEST_SUITE(TFlatTableExecutor_TryKeepInMemory) {
         UNIT_ASSERT_VALUES_EQUAL(cacheCounters->CacheMissPages->Val(), 6); // cache misses before preloading
 
         DoFullScan(env, failedAttempts, true);
-        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 12); // TODO: preload, should be: 1 groups[0], 1 historic[0], 3 index pages are sticky
+        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 2); // 1 groups[0], 1 historic[0], 3 index pages are sticky
         UNIT_ASSERT_VALUES_EQUAL(cacheCounters->CacheMissPages->Val(), 8); // 1 groups[0], 1 historic[0], 6 cache misses before preloading, 3 index pages are sticky
     }
 
@@ -7035,7 +7035,7 @@ Y_UNIT_TEST_SUITE(TFlatTableExecutor_TryKeepInMemory) {
         UNIT_ASSERT_VALUES_EQUAL(cacheCounters->CacheMissPages->Val(), 4); // cache misses before preloading
 
         DoFullScan(env, failedAttempts, true);
-        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 12); // TODO: preload, should be: index root nodes, 1 groups[0], 1 historic[0]
+        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 2); // index root nodes, 1 groups[0], 1 historic[0]
         UNIT_ASSERT_VALUES_EQUAL(cacheCounters->CacheMissPages->Val(), 6); // 1 groups[0], 1 historic[0], 4 cache misses before preloading, should be index root nodes?
     }
 
@@ -7072,7 +7072,7 @@ Y_UNIT_TEST_SUITE(TFlatTableExecutor_TryKeepInMemory) {
 
         // should have the same behaviour
         DoFullScan(env, failedAttempts, true);
-        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 12); // TODO: preload, should be 0
+        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 0);
         UNIT_ASSERT_VALUES_EQUAL(cacheCounters->CacheMissPages->Val(), 4); // should be no more cache misses
     }
 
@@ -7111,7 +7111,7 @@ Y_UNIT_TEST_SUITE(TFlatTableExecutor_TryKeepInMemory) {
         UNIT_ASSERT_VALUES_EQUAL(cacheCounters->CacheMissPages->Val(), 4); // cache misses before preloading
 
         DoFullScan(env, failedAttempts, true);
-        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 20); // TODO: preload, should be 0
+        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 0);
         // 4 cache misses before preloading, all old and new colums in try-keep-in-memory family sould be preloaded
         UNIT_ASSERT_VALUES_EQUAL(cacheCounters->CacheMissPages->Val(), 4);
     }
@@ -7150,7 +7150,7 @@ Y_UNIT_TEST_SUITE(TFlatTableExecutor_TryKeepInMemory) {
         UNIT_ASSERT_VALUES_EQUAL(cacheCounters->CacheMissPages->Val(), 4); // cache misses before preloading
 
         DoFullScan(env, failedAttempts, true);
-        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 20); // TODO: preload, should be 0
+        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 0);
         // 4 cache misses before preloading, if at least one family of a group is for memory load it 
         UNIT_ASSERT_VALUES_EQUAL(cacheCounters->CacheMissPages->Val(), 4);
     }
@@ -7232,7 +7232,7 @@ Y_UNIT_TEST_SUITE(TFlatTableExecutor_TryKeepInMemory) {
 
         // should not be preloaded
         DoFullScan(env, failedAttempts, true);
-        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 12); // TODO: preload, should be 6
+        UNIT_ASSERT_VALUES_EQUAL(failedAttempts, 2);
         UNIT_ASSERT_VALUES_EQUAL(cacheCounters->CacheMissPages->Val(), 6); // 1 groups[0], 1 historic[0], 4 cache misses before preloading
     }
 }

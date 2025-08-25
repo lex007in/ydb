@@ -1,5 +1,6 @@
 #include "flat_bio_actor.h"
 #include "flat_bio_events.h"
+#include "flat_executor.h"
 #include "shared_cache_events.h"
 #include "shared_cache_pages.h"
 #include "shared_cache_tiered.h"
@@ -728,6 +729,8 @@ class TSharedPageCache : public TActorBootstrapped<TSharedPageCache> {
         if (msg->Status != NKikimrProto::OK) {
             DropCollection(*collection, msg->Status);
         } else {
+            TVector<TEvResult::TLoaded> toRespond;
+            bool needRespond = collection->GetCacheMode() == ECacheMode::TryKeepInMemory;
             for (auto &paged : msg->Pages) {
                 Y_ENSURE(paged.PageId < collection->PageMap.size());
                 auto* page = collection->PageMap[paged.PageId].Get();
@@ -737,6 +740,17 @@ class TSharedPageCache : public TActorBootstrapped<TSharedPageCache> {
 
                 page->ProvideBody(std::move(paged.Data));
                 BodyProvided(*collection, page);
+                if (needRespond) {
+                    toRespond.emplace_back(page->PageId, TSharedPageRef::MakeUsed(page, SharedCachePages->GCList));
+                }
+            }
+            if (!toRespond.empty()) {
+                for (const auto& owner : collection->InMemoryOwners) {
+                    TAutoPtr<NSharedCache::TEvResult> result = new NSharedCache::TEvResult(msg->PageCollection, NKikimrProto::OK, 0);
+                    result->Pages = toRespond;
+
+                    Send(owner, result.Release(), 0, static_cast<ui64>(ESharedCacheRequestType::TryKeepInMemPages));
+                }
             }
         }
 
