@@ -3843,6 +3843,27 @@ inline bool IsValidColumnName(const TString& name, bool allowSystemColumnNames =
     return true;
 }
 
+// namespace NForcedCompaction {
+struct TForcedCompactionInfo : TSimpleRefCount<TForcedCompactionInfo> {
+    using TPtr = TIntrusivePtr<TForcedCompactionInfo>;
+
+    ui64 Id;  // TxId from the original TEvCreateRequest
+    TPathId TablePathId;
+    bool Cascade;
+    ui32 MaxShardsInFlight;
+
+    TInstant StartTime = TInstant::Zero();
+    TInstant EndTime = TInstant::Zero();
+
+    TMaybe<TString> UserSID;
+
+    ui32 TotalShardCount = 0;
+    ui32 DoneShardCount = 0;
+
+    THashSet<TShardIdx> ShardsInFlight;
+};
+// } // NForcedCompaction
+
 }
 
 }
