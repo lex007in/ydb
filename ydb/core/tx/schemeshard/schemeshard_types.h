@@ -172,4 +172,10 @@ enum class EShredStatus : ui32 {
     IN_PROGRESS_BSC = 3,
 };
 
+enum class EShardCompactionStatus : ui32 {
+    Unspecified = 0,
+    InProgress = 1,
+    Done = 2,
+};
+
 }

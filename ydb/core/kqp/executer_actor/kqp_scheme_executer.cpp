@@ -9,6 +9,7 @@
 #include <ydb/core/protos/auth.pb.h>
 #include <ydb/core/protos/schemeshard/operations.pb.h>
 #include <ydb/core/tx/schemeshard/schemeshard_build_index.h>
+#include <ydb/core/tx/schemeshard/schemeshard_forced_compaction.h>
 #include <ydb/core/tx/tx_proxy/proxy.h>
 #include <ydb/library/aclib/aclib.h>
 #include <ydb/services/metadata/abstract/kqp_common.h>
@@ -101,7 +102,7 @@ public:
             TEvKqpExecuter::TEvTxResponse::EExecutionType::Scheme);
     }
 
-    void StartBuildOperation() {
+    void StartAlterOperation() {
         Send(MakeTxProxyID(), new TEvTxUserProxy::TEvAllocateTxId);
         Become(&TKqpSchemeExecuter::ExecuteState);
     }
@@ -377,7 +378,7 @@ public:
             }
 
             case NKqpProto::TKqpSchemeOperation::kBuildOperation: {
-                return StartBuildOperation();
+                return StartAlterOperation();
             }
 
             case NKqpProto::TKqpSchemeOperation::kCreateUser: {
@@ -649,6 +650,10 @@ public:
                 break;
             }
 
+            case NKqpProto::TKqpSchemeOperation::kCompactTable: {
+                return StartAlterOperation();
+            }
+
             default:
                 InternalError(TStringBuilder() << "Unexpected scheme operation: "
                     << (ui32) schemeOp.GetOperationCase());
@@ -773,6 +778,7 @@ public:
                 hFunc(TEvTxUserProxy::TEvAllocateTxIdResult, Handle);
                 hFunc(TEvTxProxySchemeCache::TEvNavigateKeySetResult, Handle);
                 hFunc(NSchemeShard::TEvIndexBuilder::TEvCreateResponse, Handle);
+                hFunc(NSchemeShard::TEvForcedCompaction::TEvCreateResponse, Handle);
                 hFunc(TEvTabletPipe::TEvClientConnected, Handle);
                 hFunc(TEvTabletPipe::TEvClientDestroyed, Handle);
                 hFunc(NSchemeShard::TEvIndexBuilder::TEvGetResponse, Handle);
@@ -836,8 +842,24 @@ public:
 
     void Navigate(const TActorId& schemeCache) {
         const auto& schemeOp = PhyTx->GetSchemeOperation();
-        const auto& buildOp = schemeOp.GetBuildOperation();
-        const auto& path = buildOp.source_path();
+    
+        TString path;
+        switch (schemeOp.GetOperationCase()) {
+            case NKqpProto::TKqpSchemeOperation::kBuildOperation: {
+                const auto& buildOp = schemeOp.GetBuildOperation();
+                path = buildOp.source_path();
+                break;
+            }
+            case NKqpProto::TKqpSchemeOperation::kCompactTable: {
+                const auto& compactOp = schemeOp.GetCompactTable();
+                path = compactOp.source_path();
+                break;
+            }
+            default:
+                InternalError(TStringBuilder() << "Unexpected scheme operation when Navigate: "
+                    << (ui32) schemeOp.GetOperationCase());
+                break;
+        }
 
         const auto paths = NKikimr::SplitPath(path);
         if (paths.empty()) {
@@ -908,14 +930,33 @@ public:
             return ReplyErrorAndDie(Ydb::StatusIds::INTERNAL_ERROR, NYql::TIssue("empty domain info"));
         }
 
-        const auto& schemeOp = PhyTx->GetSchemeOperation();
-        const auto& buildOp = schemeOp.GetBuildOperation();
         SetSchemeShardId(domainInfo->ExtractSchemeShard());
-        auto req = std::make_unique<NSchemeShard::TEvIndexBuilder::TEvCreateRequest>(TxId, Database, buildOp);
-        if (UserToken) {
-            req->Record.SetUserSID(UserToken->GetUserSID());
+
+        const auto& schemeOp = PhyTx->GetSchemeOperation();
+        switch (schemeOp.GetOperationCase()) {
+            case NKqpProto::TKqpSchemeOperation::kBuildOperation: {
+                const auto& buildOp = schemeOp.GetBuildOperation();
+                auto req = std::make_unique<NSchemeShard::TEvIndexBuilder::TEvCreateRequest>(TxId, Database, buildOp);
+                if (UserToken) {
+                    req->Record.SetUserSID(UserToken->GetUserSID());
+                }
+                ForwardToSchemeShard(std::move(req));
+                break;
+            }
+            case NKqpProto::TKqpSchemeOperation::kCompactTable: {
+                const auto& compactOp = schemeOp.GetCompactTable();
+                auto req = std::make_unique<NSchemeShard::TEvForcedCompaction::TEvCreateRequest>(TxId, Database, compactOp);
+                if (UserToken) {
+                    req->Record.SetUserSID(UserToken->GetUserSID());
+                }
+                ForwardToSchemeShard(std::move(req));
+                break;
+            }
+            default:
+                InternalError(TStringBuilder() << "Unexpected scheme operation when handle TEvNavigateKeySetResult: "
+                    << (ui32) schemeOp.GetOperationCase());
+                break;
         }
-        ForwardToSchemeShard(std::move(req));
     }
 
     void PassAway() override {
@@ -947,6 +988,14 @@ public:
         } else {
             ReplyErrorAndDie(status, &issuesProto);
         }
+    }
+
+    void Handle(NSchemeShard::TEvForcedCompaction::TEvCreateResponse::TPtr& ev) {
+        const auto& response = ev->Get()->Record;
+        const auto status = response.GetStatus();
+        auto issuesProto = response.GetIssues();
+
+        ReplyErrorAndDie(status, &issuesProto);
     }
 
     void Handle(TEvTabletPipe::TEvClientConnected::TPtr &ev) {

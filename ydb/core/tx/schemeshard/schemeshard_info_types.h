@@ -42,6 +42,7 @@
 #include <ydb/core/tx/datashard/datashard.h>
 #include <ydb/core/tx/message_seqno.h>
 #include <ydb/core/tx/schemeshard/schemeshard_billing_helpers.h>
+#include <ydb/core/util/circular_queue.h>
 #include <ydb/core/util/counted_leaky_bucket.h>
 #include <ydb/core/util/pb.h>
 
@@ -3810,6 +3811,32 @@ inline bool IsValidColumnName(const TString& name, bool allowSystemColumnNames =
 
     return true;
 }
+
+// namespace NForcedCompaction {
+struct TForcedCompactionInfo : TSimpleRefCount<TForcedCompactionInfo> {
+    using TPtr = TIntrusivePtr<TForcedCompactionInfo>;
+
+    ui64 Id;  // TxId from the original TEvCreateRequest
+    TPathId TablePathId;
+    bool Cascade;
+    ui32 MaxShardsInFlight;
+
+    TInstant StartTime = TInstant::Zero();
+    TInstant EndTime = TInstant::Zero();
+
+    TMaybe<TString> UserSID;
+
+    ui32 TotalShardCount = 0;
+    ui32 DoneShardCount = 0;
+
+    ui32 ShardsInFlight = 0;
+
+    // TFifoQueue<TShardIdx> PendingShards;
+    // THashSet<TShardIdx> InProgressShards;
+
+    TSet<TActorId> Subscribers;
+};
+// } // NForcedCompaction
 
 }
 

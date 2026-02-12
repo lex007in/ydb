@@ -11,6 +11,7 @@
 #include <ydb/core/cms/console/configs_dispatcher.h>
 #include <ydb/core/protos/console_config.pb.h>
 #include <ydb/core/tx/schemeshard/schemeshard_build_index.h>
+#include <ydb/core/tx/schemeshard/schemeshard_forced_compaction.h>
 #include <ydb/core/engine/mkql_proto.h>
 #include <ydb/core/ydb_convert/column_families.h>
 #include <ydb/core/ydb_convert/table_description.h>
@@ -85,7 +86,7 @@ public:
                 return;
             }
 
-            PrepareAlterTableAddIndex();
+            PrepareAlterTableWithTxId();
             break;
 
         case EOp::Attribute:
@@ -97,6 +98,14 @@ public:
         case EOp::DropIndex:
         case EOp::RenameIndex:
             AlterTable(ctx);
+            break;
+        case EOp::Compact:
+            if (!BuildAlterTableCompactRequest(req, &ForcedCompactionSettings, code, error)) {
+                Reply(code, error, NKikimrIssues::TIssuesIds::DEFAULT_ERROR, ctx);
+                return;
+            }
+
+            PrepareAlterTableWithTxId();
             break;
         }
 
@@ -160,9 +169,9 @@ private:
             IEventHandle::FlagTrackDelivery);
     }
 
-    void PrepareAlterTableAddIndex() {
+    void PrepareAlterTableWithTxId() {
         using namespace NTxProxy;
-        LogPrefix = TStringBuilder() << "[AlterTableAddIndexOp " << SelfId() << "] ";
+        LogPrefix = TStringBuilder() << "[AlterTable" << OpType << ' ' << SelfId() << "] ";
         Send(MakeTxProxyID(), new TEvTxUserProxy::TEvAllocateTxId);
     }
 
@@ -171,7 +180,7 @@ private:
 
         const auto* msg = ev->Get();
         TxId = msg->TxId;
-        LogPrefix = TStringBuilder() << "[AlterTableAddIndex " << SelfId() << " TxId# " << TxId << "] ";
+        LogPrefix = TStringBuilder() << "[AlterTable" << OpType << ' ' << SelfId() << " TxId# " << TxId << "] ";
 
         Navigate(GetProtoRequest()->path());
     }
@@ -282,13 +291,15 @@ private:
                 Navigate(entry.TableId);
             }
             break;
+        case EOp::Compact:
+            return AlterTableCompactOp(entry, ctx);
         default:
             TXLOG_E("Got unexpected cache response");
             return Reply(Ydb::StatusIds::INTERNAL_ERROR, ctx);
         }
     }
 
-    bool CheckAddIndexAccess(const NSchemeCache::TSchemeCacheNavigate::TEntry& entry, const TActorContext& ctx) {
+    bool CheckAlterAccess(const NSchemeCache::TSchemeCacheNavigate::TEntry& entry, const TActorContext& ctx) {
         if (!UserToken || !entry.SecurityObject) {
             return true;
         }
@@ -309,7 +320,7 @@ private:
     }
 
     void AlterTableAddIndexOp(const NSchemeCache::TSchemeCacheNavigate::TEntry& entry, const TActorContext& ctx) {
-        if (!CheckAddIndexAccess(entry, ctx)) {
+        if (!CheckAlterAccess(entry, ctx)) {
             return;
         }
 
@@ -325,6 +336,25 @@ private:
     void SendAddIndexOpToSS(const TActorContext& ctx, ui64 schemeShardId) {
         SetSchemeShardId(schemeShardId);
         auto ev = std::make_unique<NSchemeShard::TEvIndexBuilder::TEvCreateRequest>(TxId, DatabaseName, std::move(IndexBuildSettings));
+        if (UserToken) {
+            ev->Record.SetUserSID(UserToken->GetUserSID());
+        }
+        ForwardToSchemeShard(ctx, std::move(ev));
+    }
+
+    void AlterTableCompactOp(const NSchemeCache::TSchemeCacheNavigate::TEntry& entry, const TActorContext& ctx) {
+        if (!CheckAlterAccess(entry, ctx)) {
+            return;
+        }
+
+        const auto& domainInfo = entry.DomainInfo;
+        if (!domainInfo) {
+            TXLOG_E("Got empty domain info");
+            return Reply(Ydb::StatusIds::INTERNAL_ERROR, ctx);
+        }
+
+        SetSchemeShardId(domainInfo->ExtractSchemeShard());
+        auto ev = std::make_unique<NSchemeShard::TEvForcedCompaction::TEvCreateRequest>(TxId, DatabaseName, std::move(ForcedCompactionSettings));
         if (UserToken) {
             ev->Record.SetUserSID(UserToken->GetUserSID());
         }
@@ -421,6 +451,7 @@ private:
     TTableProfiles Profiles;
     EOp OpType;
     NKikimrIndexBuilder::TIndexBuildSettings IndexBuildSettings;
+    NKikimrForcedCompaction::TForcedCompactionSettings ForcedCompactionSettings;
 };
 
 void DoAlterTableRequest(std::unique_ptr<IRequestOpCtx> p, const IFacilityProvider& f) {
