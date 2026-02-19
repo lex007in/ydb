@@ -5460,6 +5460,9 @@ void TSchemeShard::StateWork(STFUNC_SIG) {
         // namespace NForcedCompaction {
         HFuncTraced(TEvForcedCompaction::TEvCreateRequest, Handle);
         HFuncTraced(TEvForcedCompaction::TEvGetRequest, Handle);
+        HFuncTraced(TEvForcedCompaction::TEvCancelRequest, Handle);
+        HFuncTraced(TEvForcedCompaction::TEvForgetRequest, Handle);
+        HFuncTraced(TEvForcedCompaction::TEvListRequest, Handle);
         // } // NForcedCompaction
 
         //namespace NCdcStreamScan {
