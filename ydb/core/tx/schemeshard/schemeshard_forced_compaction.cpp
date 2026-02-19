@@ -8,6 +8,7 @@ void TSchemeShard::AddForcedCompaction(
     const TForcedCompactionInfo::TPtr& forcedCompactionInfo)
 {
     ForcedCompactions[forcedCompactionInfo->Id] = forcedCompactionInfo;
+    ForcedCompactionsByTime.insert(std::make_pair(forcedCompactionInfo->StartTime, forcedCompactionInfo->Id));
     if (forcedCompactionInfo->State == TForcedCompactionInfo::EState::InProgress) {
         InProgressForcedCompactionsByTable[forcedCompactionInfo->TablePathId] = forcedCompactionInfo;
         ForcedCompactionTablesQueue.Enqueue(forcedCompactionInfo->TablePathId);
@@ -46,6 +47,10 @@ void TSchemeShard::PersistForcedCompactionState(NIceDb::TNiceDb& db, const TForc
     }
 }
 
+void TSchemeShard::PersistForcedCompactionForget(NIceDb::TNiceDb& db, const TForcedCompactionInfo& info) {
+    db.Table<Schema::ForcedCompactions>().Key(info.Id).Delete();
+}
+
 void TSchemeShard::PersistForcedCompactionShards(NIceDb::TNiceDb& db, const TForcedCompactionInfo& info, const TVector<TShardIdx>& shardsToCompact) {
     for (const auto& shardId : shardsToCompact) {
         db.Table<Schema::WaitingForcedCompactionShards>().Key(shardId.GetOwnerId(), shardId.GetLocalId()).Update(
@@ -77,9 +82,24 @@ void TSchemeShard::FromForcedCompactionInfo(NKikimrForcedCompaction::TForcedComp
     compaction.MutableSettings()->set_cascade(info.Cascade);
     compaction.MutableSettings()->set_max_shards_in_flight(info.MaxShardsInFlight);
 
-    float progress = info.TotalShardCount > 0 ? (100.f * info.DoneShardCount / info.TotalShardCount) : 0;
-
-    compaction.SetProgress(progress);
+    switch (info.State) {
+        case TForcedCompactionInfo::EState::InProgress:
+            compaction.SetState(Ydb::Table::CompactState::STATE_IN_PROGRESS);
+            compaction.SetProgress(info.CalcProgress());
+            break;
+        case TForcedCompactionInfo::EState::Done:
+            compaction.SetState(Ydb::Table::CompactState::STATE_DONE);
+            compaction.SetProgress(100.0);
+            break;
+        case TForcedCompactionInfo::EState::Cancelled:
+            compaction.SetState(Ydb::Table::CompactState::STATE_CANCELLED);
+            compaction.SetProgress(info.CalcProgress());
+            break;
+        case TForcedCompactionInfo::EState::Invalid:
+            compaction.SetState(Ydb::Table::CompactState::STATE_UNSPECIFIED);
+            compaction.SetProgress(0.0);
+            break;
+    }
 }
 
 void TSchemeShard::CompleteForcedCompactionForShard(const TShardIdx& shardIdx, const TActorContext &ctx) {
@@ -141,6 +161,18 @@ void TSchemeShard::Handle(TEvForcedCompaction::TEvCreateRequest::TPtr& ev, const
 
 void TSchemeShard::Handle(TEvForcedCompaction::TEvGetRequest::TPtr& ev, const TActorContext& ctx) {
     Execute(CreateTxGetForcedCompaction(ev), ctx);
+}
+
+void TSchemeShard::Handle(TEvForcedCompaction::TEvCancelRequest::TPtr& ev, const TActorContext& ctx) {
+    Execute(CreateTxCancelForcedCompaction(ev), ctx);
+}
+
+void TSchemeShard::Handle(TEvForcedCompaction::TEvForgetRequest::TPtr& ev, const TActorContext& ctx) {
+    Execute(CreateTxForgetForcedCompaction(ev), ctx);
+}
+
+void TSchemeShard::Handle(TEvForcedCompaction::TEvListRequest::TPtr& ev, const TActorContext& ctx) {
+    Execute(CreateTxListForcedCompaction(ev), ctx);
 }
 
 NOperationQueue::EStartStatus TSchemeShard::StartForcedCompaction(const TShardIdx& shardIdx) {

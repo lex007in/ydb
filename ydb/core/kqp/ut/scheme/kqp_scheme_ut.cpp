@@ -13714,6 +13714,28 @@ END DO)",
 
         TestTruncateTable(tableName, useQueryClient, createSecondaryIndex);
     }
+
+    Y_UNIT_TEST(AlterTableCompact) {
+        TKikimrRunner kikimr;
+        auto db = kikimr.GetTableClient();
+        auto session = db.CreateSession().GetValueSync().GetSession();
+        TString tableName = "/Root/TestTable";
+        {
+            auto query = TStringBuilder() << R"(
+                CREATE TABLE `)" << tableName << R"(` (
+                    Key Uint64,
+                    Value String,
+                    PRIMARY KEY (Key)
+                );)";
+            auto result = session.ExecuteSchemeQuery(query).GetValueSync();
+            UNIT_ASSERT_VALUES_EQUAL_C(result.GetStatus(), EStatus::SUCCESS, result.GetIssues().ToString());
+        }
+        {
+            const auto result = session.ExecuteSchemeQuery(TStringBuilder() << R"(
+                ALTER TABLE `)" << tableName << R"(` COMPACT WITH (MAX_SHARDS_IN_FLIGHT = 2, CASCADE = false);)").ExtractValueSync();
+            UNIT_ASSERT_VALUES_EQUAL_C(result.GetStatus(), EStatus::SUCCESS, result.GetIssues().ToOneLineString());
+        }
+    }
 }
 
 namespace {

@@ -13,7 +13,7 @@ struct TSchemeShard::TForcedCompaction::TTxCreate: public TRwTxBase {
         , Request(ev)
     {}
 
-    void DoExecute(TTransactionContext &txc, const TActorContext &ctx) override {
+    void DoExecute(TTransactionContext& txc, const TActorContext& ctx) override {
         const auto& request = Request->Get()->Record;
         const auto& settings = request.GetSettings();
         LOG_N("TForcedCompaction::TTxCreate DoExecute " << request.ShortDebugString());
