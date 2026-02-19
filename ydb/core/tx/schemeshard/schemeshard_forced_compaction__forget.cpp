@@ -53,6 +53,17 @@ struct TSchemeShard::TForcedCompaction::TTxForget: public TRwTxBase {
             );
         }
 
+        // ensure that all shards are persisted for this compaction
+        for (const auto& [_, info] : Self->DoneShardsToPersist) {
+            if (info->Id == forcedCompactionInfo.Id) {
+                return Reply(
+                    std::move(response),
+                    Ydb::StatusIds::PRECONDITION_FAILED,
+                    TStringBuilder() << "Forced compaction with id " << compactionId << " has unpersisted shards"
+                );
+            }
+        }
+
         NIceDb::TNiceDb db(txc.DB);
         Self->PersistForcedCompactionForget(db, forcedCompactionInfo);
         Self->ForcedCompactionsByTime.erase(std::make_pair(forcedCompactionInfo.StartTime, forcedCompactionInfo.Id));

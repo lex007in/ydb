@@ -75,7 +75,10 @@ struct TSchemeShard::TForcedCompaction::TTxCancel: public TRwTxBase {
 
         // clean waiting in flight shards
         for (auto shardId : forcedCompactionInfo.ShardsInFlight) {
-            Self->ForcedCompactionQueue->Remove(shardId);
+            if (Self->ForcedCompactionQueue) {
+                Self->ForcedCompactionQueue->Remove(shardId);
+            }
+            Self->InProgressForcedCompactionsByShard.erase(shardId);
             Self->PersistForcedCompactionDoneShard(db, shardId);
         }
         forcedCompactionInfo.ShardsInFlight.clear();

@@ -21,7 +21,7 @@ public:
 
     void DoExecute(TTransactionContext &txc, const TActorContext &ctx) override {
         const auto& request = Request->Get()->Record;
-        LOG_N("TForcedCompaction::TTxGet DoExecute " << request.ShortDebugString());
+        LOG_N("TForcedCompaction::TTxList DoExecute " << request.ShortDebugString());
 
         auto response = MakeHolder<TEvForcedCompaction::TEvListResponse>();
         TPath database = TPath::Resolve(request.GetDatabaseName(), Self);
@@ -77,7 +77,7 @@ public:
     }
 
     void DoComplete(const TActorContext &ctx) override {
-        LOG_N("TForcedCompaction::TTxGet DoComplete");
+        LOG_N("TForcedCompaction::TTxList DoComplete");
         SideEffects.ApplyOnComplete(Self, ctx);
     }
 
