@@ -12,6 +12,8 @@ void TSchemeShard::AddForcedCompaction(
     if (forcedCompactionInfo->State == TForcedCompactionInfo::EState::InProgress) {
         InProgressForcedCompactionsByTable[forcedCompactionInfo->TablePathId] = forcedCompactionInfo;
         ForcedCompactionTablesQueue.Enqueue(forcedCompactionInfo->TablePathId);
+    } else if (forcedCompactionInfo->State == TForcedCompactionInfo::EState::Cancelling) {
+        CancellingForcedCompactions.emplace_back(forcedCompactionInfo);
     }
 }
 

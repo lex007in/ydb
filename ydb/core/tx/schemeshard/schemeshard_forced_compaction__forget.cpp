@@ -54,18 +54,6 @@ struct TSchemeShard::TForcedCompaction::TTxForget: public TRwTxBase {
         }
 
         NIceDb::TNiceDb db(txc.DB);
-
-        // persist all shards for this compaction
-        for (auto it = Self->DoneShardsToPersist.begin(); it != Self->DoneShardsToPersist.end();) {
-            const auto& [shardIdx, info] = *it;
-            if (info->Id == forcedCompactionInfo.Id) {
-                Self->PersistForcedCompactionDoneShard(db, shardIdx);
-                it = Self->DoneShardsToPersist.erase(it);
-            } else {
-                ++it;
-            }
-        }
-
         Self->PersistForcedCompactionForget(db, forcedCompactionInfo);
         Self->ForcedCompactionsByTime.erase(std::make_pair(forcedCompactionInfo.StartTime, forcedCompactionInfo.Id));
         Self->ForcedCompactions.erase(forcedCompactionInfo.Id);

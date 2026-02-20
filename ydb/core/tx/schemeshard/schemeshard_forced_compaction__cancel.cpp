@@ -45,16 +45,17 @@ struct TSchemeShard::TForcedCompaction::TTxCancel: public TRwTxBase {
             );
         }
 
-        if (forcedCompactionInfo.IsFinished()) {
+        if (forcedCompactionInfo.IsFinished() ||
+            forcedCompactionInfo.State == TForcedCompactionInfo::EState::Cancelling)
+        {
             return Reply(
                 std::move(response),
                 Ydb::StatusIds::PRECONDITION_FAILED,
-                TStringBuilder() << "Forced compaction with id " << compactionId << " has been finished already"
+                TStringBuilder() << "Forced compaction with id " << compactionId << " has been finished or cancelling already"
             );
         }
 
-        forcedCompactionInfo.State = TForcedCompactionInfo::EState::Cancelled;
-        forcedCompactionInfo.EndTime = ctx.Now();
+        forcedCompactionInfo.State = TForcedCompactionInfo::EState::Cancelling;
 
         NIceDb::TNiceDb db(txc.DB);
         Self->PersistForcedCompactionState(db, forcedCompactionInfo);
@@ -83,7 +84,7 @@ struct TSchemeShard::TForcedCompaction::TTxCancel: public TRwTxBase {
         }
         forcedCompactionInfo.ShardsInFlight.clear();
 
-        Reply(std::move(response));
+        Self->CancellingForcedCompactions.emplace_back(*forcedCompactionInfoPtr, Request->Sender, request.GetTxId(), Request->Cookie);
 
         SideEffects.ApplyOnExecute(Self, txc, ctx);
     }

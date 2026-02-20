@@ -1744,10 +1744,32 @@ public:
     TFifoQueue<TPathId> ForcedCompactionTablesQueue;
     THashMap<TPathId, TFifoQueue<TShardIdx>> ForcedCompactionShardsByTable;
 
-    TList<std::pair<TShardIdx, TForcedCompactionInfo::TPtr>> DoneShardsToPersist;
+    TVector<std::pair<TShardIdx, TForcedCompactionInfo::TPtr>> DoneShardsToPersist;
     ui32 ForcedCompactionPersistBatchSize = 100;
     TInstant ForcedCompactionProgressStartTime;
     TDuration ForcedCompactionPersistBatchMaxTime = TDuration::MilliSeconds(100);
+
+    struct TCancellingForcedCompaction {
+        struct TWaiter {
+            TActorId ActorId;
+            ui64 TxId;
+            ui64 Cookie;
+        };
+
+        TForcedCompactionInfo::TPtr Info;
+        std::optional<TWaiter> Waiter;
+
+        explicit TCancellingForcedCompaction(TForcedCompactionInfo::TPtr info)
+            : Info(std::move(info))
+            , Waiter(std::nullopt)
+        {}
+
+        TCancellingForcedCompaction(TForcedCompactionInfo::TPtr info, TActorId waiter, ui64 txId, ui64 cookie)
+            : Info(std::move(info))
+            , Waiter(TWaiter(waiter, txId, cookie))
+        {}
+    };
+    TVector<TCancellingForcedCompaction> CancellingForcedCompactions;
 
     struct TForcedCompaction {
         struct TTxCreate;

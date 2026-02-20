@@ -2274,7 +2274,7 @@ namespace NSchemeShardUT_Private {
         TAutoPtr<IEventHandle> handle;
         auto ev = runtime.GrabEdgeEvent<TEvForcedCompaction::TEvGetResponse>(handle);
 
-        UNIT_ASSERT_EQUAL_C(ev->Record.GetStatus(), expectedStatus, ev->Record.GetIssues());
+        UNIT_ASSERT_VALUES_EQUAL_C(ev->Record.GetStatus(), expectedStatus, ev->Record.GetIssues());
 
         return ev->Record;
     }
@@ -2301,7 +2301,7 @@ namespace NSchemeShardUT_Private {
         TAutoPtr<IEventHandle> handle;
         auto ev = runtime.GrabEdgeEvent<TEvForcedCompaction::TEvCancelResponse>(handle);
 
-        UNIT_ASSERT_EQUAL_C(ev->Record.GetStatus(), expectedStatus, ev->Record.GetIssues());
+        UNIT_ASSERT_VALUES_EQUAL_C(ev->Record.GetStatus(), expectedStatus, ev->Record.GetIssues());
 
         return ev->Record;
     }
@@ -2329,7 +2329,7 @@ namespace NSchemeShardUT_Private {
         TAutoPtr<IEventHandle> handle;
         auto ev = runtime.GrabEdgeEvent<TEvForcedCompaction::TEvForgetResponse>(handle);
 
-        UNIT_ASSERT_EQUAL_C(ev->Record.GetStatus(), expectedStatus, ev->Record.GetIssues());
+        UNIT_ASSERT_VALUES_EQUAL_C(ev->Record.GetStatus(), expectedStatus, ev->Record.GetIssues());
 
         return ev->Record;
     }
@@ -2357,7 +2357,7 @@ namespace NSchemeShardUT_Private {
         TAutoPtr<IEventHandle> handle;
         auto ev = runtime.GrabEdgeEvent<TEvForcedCompaction::TEvListResponse>(handle);
 
-        UNIT_ASSERT_EQUAL_C(ev->Record.GetStatus(), expectedStatus, ev->Record.GetIssues());
+        UNIT_ASSERT_VALUES_EQUAL_C(ev->Record.GetStatus(), expectedStatus, ev->Record.GetIssues());
 
         return ev->Record;
     }
