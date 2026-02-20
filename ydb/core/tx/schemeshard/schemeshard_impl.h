@@ -1744,7 +1744,7 @@ public:
     TFifoQueue<TPathId> ForcedCompactionTablesQueue;
     THashMap<TPathId, TFifoQueue<TShardIdx>> ForcedCompactionShardsByTable;
 
-    TVector<std::pair<TShardIdx, TForcedCompactionInfo::TPtr>> DoneShardsToPersist;
+    TList<std::pair<TShardIdx, TForcedCompactionInfo::TPtr>> DoneShardsToPersist;
     ui32 ForcedCompactionPersistBatchSize = 100;
     TInstant ForcedCompactionProgressStartTime;
     TDuration ForcedCompactionPersistBatchMaxTime = TDuration::MilliSeconds(100);

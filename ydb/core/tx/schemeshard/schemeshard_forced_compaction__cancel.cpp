@@ -54,7 +54,7 @@ struct TSchemeShard::TForcedCompaction::TTxCancel: public TRwTxBase {
         }
 
         forcedCompactionInfo.State = TForcedCompactionInfo::EState::Cancelled;
-        forcedCompactionInfo.EndTime = TAppData::TimeProvider->Now();
+        forcedCompactionInfo.EndTime = ctx.Now();
 
         NIceDb::TNiceDb db(txc.DB);
         Self->PersistForcedCompactionState(db, forcedCompactionInfo);
@@ -91,7 +91,7 @@ struct TSchemeShard::TForcedCompaction::TTxCancel: public TRwTxBase {
     void DoComplete(const TActorContext &ctx) override {
         LOG_N("TForcedCompaction::TTxCancel DoComplete");
         SideEffects.ApplyOnComplete(Self, ctx);
-        Self->ForcedCompactionProgressStartTime = TAppData::TimeProvider->Now();
+        Self->ForcedCompactionProgressStartTime = ctx.Now();
         Self->Execute(Self->CreateTxProgressForcedCompaction());
     }
 

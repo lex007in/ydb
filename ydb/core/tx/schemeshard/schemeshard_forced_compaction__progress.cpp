@@ -17,13 +17,16 @@ struct TSchemeShard::TForcedCompaction::TTxProgress: public TRwTxBase {
         LOG_N("TForcedCompaction::TTxProgress DoExecute");
         NIceDb::TNiceDb db(txc.DB);
         THashSet<TForcedCompactionInfo::TPtr> compactionsToPersist;
-        for (auto& [shardIdx, forcedCompactionInfo] : Self->DoneShardsToPersist) {
+        for (auto it = Self->DoneShardsToPersist.begin(); it != Self->DoneShardsToPersist.end();) {
+            auto& [shardIdx, forcedCompactionInfo] = *it;
             if (Self->InProgressForcedCompactionsByShard.erase(shardIdx)) {
                 forcedCompactionInfo->DoneShardCount++;
             }
             compactionsToPersist.insert(forcedCompactionInfo);
             Self->PersistForcedCompactionDoneShard(db, shardIdx);
+            it = Self->DoneShardsToPersist.erase(it);
         }
+        Y_DEBUG_ABORT_UNLESS(Self->DoneShardsToPersist.empty());
 
         for (auto& forcedCompactionInfo : compactionsToPersist) {
             const auto* shardsQueue = Self->ForcedCompactionShardsByTable.FindPtr(forcedCompactionInfo->TablePathId);
@@ -34,7 +37,7 @@ struct TSchemeShard::TForcedCompaction::TTxProgress: public TRwTxBase {
                     Self->ForcedCompactionTablesQueue.Remove(forcedCompactionInfo->TablePathId);
                 }
                 forcedCompactionInfo->State = TForcedCompactionInfo::EState::Done;
-                forcedCompactionInfo->EndTime = TAppData::TimeProvider->Now();
+                forcedCompactionInfo->EndTime = ctx.Now();
                 Self->InProgressForcedCompactionsByTable.erase(forcedCompactionInfo->TablePathId);
             }
             Self->PersistForcedCompactionState(db, *forcedCompactionInfo);
