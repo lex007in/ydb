@@ -86,6 +86,7 @@ void TSchemeShard::FromForcedCompactionInfo(NKikimrForcedCompaction::TForcedComp
 
     switch (info.State) {
         case TForcedCompactionInfo::EState::InProgress:
+        case TForcedCompactionInfo::EState::Cancelling:
             compaction.SetState(Ydb::Table::CompactState::STATE_IN_PROGRESS);
             compaction.SetProgress(info.CalcProgress());
             break;
